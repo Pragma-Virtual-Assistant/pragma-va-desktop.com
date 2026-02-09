@@ -1,5 +1,5 @@
 /**
- * PragmaVA Advanced Form Handler (v4 - DEBUG EDITION)
+ * PragmaVA Advanced Form Handler (v5 - TRACE EDITION)
  * 
  * FEATURES:
  * 1. OTP Verification for ALL submissions (Waitlist, Idea, Contact).
@@ -87,7 +87,7 @@ function handleVerifyCode(data) {
 
     // 3. Code Valid! Save to Sheet
     const originalData = storedPayload.data;
-    saveToSheet(originalData);
+    const sheetUrl = saveToSheet(originalData); // NOW RETURNS URL
 
     // 4. Send Welcome Email (if it's a new waitlist signup)
     // Only send if it's the first time validating for this email?
@@ -99,26 +99,34 @@ function handleVerifyCode(data) {
     // 5. Cleanup
     PropertiesService.getScriptProperties().deleteProperty('OTP_' + email);
 
-    return successResponse({ message: 'Verified' });
+    return successResponse({ message: 'Verified', debug_sheet_url: sheetUrl });
 }
 
 function saveToSheet(data) {
-    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(CONFIG.SHEET_NAME);
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    if (!ss) throw new Error("No Active Spreadsheet found (Script must be bound to Sheet).");
+
+    const sheet = ss.getSheetByName(CONFIG.SHEET_NAME);
+    if (!sheet) {
+        console.error(`Sheet '${CONFIG.SHEET_NAME}' not found in Spreadsheet '${ss.getName()}' (${ss.getUrl()})`);
+        throw new Error(`Sheet '${CONFIG.SHEET_NAME}' not found. Check tabs!`);
+    }
+
     const timestamp = new Date();
 
     // Extract
     const type = data.type || 'unknown';
     const email = data.email;
     const support = data.support ? 'Yes' : 'No';
-    const content = data.idea || ''; // 'idea' maps to Idea_Content
+    const content = data.idea || '';
 
-    // Check if email exists to update "Email_Sent_Count" or "First_Seen" logic?
-    // For this v2, we will simplify: Just Append Row. 
-    // User wanted verification. Now that it's verified, we mark Validated = TRUE.
+    console.log(`Writing to Sheet: ${ss.getName()} (URL: ${ss.getUrl()})`);
+    console.log(`Row Data: ${JSON.stringify([timestamp, type, email, support, content])}`);
 
-    // Append Row:
-    // [Timestamp, Type, Email, Support, Idea_Content, Validated, Email_Sent_Count, First_Seen]
+    // Append Row
     sheet.appendRow([timestamp, type, email, support, content, 'TRUE', 1, timestamp]);
+
+    return ss.getUrl();
 }
 
 // --- RESPONSES ---

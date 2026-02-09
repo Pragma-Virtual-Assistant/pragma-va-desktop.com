@@ -22,7 +22,7 @@ function App() {
             <section id="waitlist" className="py-24 px-6 bg-gradient-to-b from-blue-50 to-white dark:from-blue-950/20 dark:to-gray-950">
                 <div className="max-w-4xl mx-auto text-center space-y-12">
                     <div>
-                        <h2 className="text-3xl md:text-5xl font-bold mb-6">Join the early-access waitlist.</h2>
+                        <h2 className="text-3xl md:text-5xl font-bold mb-6">Join the early-access waitlist</h2>
                         <p className="text-xl text-gray-600 dark:text-gray-400 mb-8">
                             Help shape the roadmap and get <span className="text-blue-600 font-bold">3 months free</span> and after <span className="text-blue-600 font-bold">50% off</span> your first year when we launch.
                         </p>
