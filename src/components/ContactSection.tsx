@@ -20,7 +20,7 @@ export function ContactSection() {
         try {
             await fetch(scriptUrl, {
                 method: 'POST',
-                mode: 'no-cors',
+                // mode: 'no-cors' REMOVED
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     type: 'contact',

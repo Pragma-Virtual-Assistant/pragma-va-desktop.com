@@ -22,7 +22,7 @@ export function WaitlistForm() {
         try {
             await fetch(scriptUrl, {
                 method: 'POST',
-                mode: 'no-cors', // Important for Google Apps Script
+                // mode: 'no-cors' REMOVED to read response
                 headers: {
                     'Content-Type': 'application/json',
                 },

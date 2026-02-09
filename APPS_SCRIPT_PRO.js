@@ -1,10 +1,11 @@
 /**
- * PragmaVA Advanced Form Handler (v5 - TRACE EDITION)
+ * PragmaVA Advanced Form Handler (v11 - CORS FIX EDITION)
  * 
  * FEATURES:
  * 1. OTP Verification for ALL submissions (Waitlist, Idea, Contact).
  * 2. Zero-persistence until verified.
  * 3. Branding: "PragmaVA Early - Access!" + Logo.
+ * 4. CORS Support (doOptions).
  * 
  * SETUP:
  * 1. Ensure 'Script Properties' are empty (or used for other things).
@@ -19,9 +20,22 @@ const CONFIG = {
     LOGO_URL: 'https://pragma-va-desktop.com/images/email-header.png' // Hosted Image
 };
 
+function doOptions(e) {
+    return ContentService.createTextOutput("")
+        .setMimeType(ContentService.MimeType.TEXT)
+        .setHeaders({
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
+            "Access-Control-Allow-Headers": "Content-Type",
+            "Access-Control-Max-Age": "86400"
+        });
+}
+
 function doPost(e) {
     const lock = LockService.getScriptLock();
     lock.tryLock(10000);
+
+    console.log("!!! VERSION 11 - CORS FIX STARTED !!!");
 
     try {
         const data = JSON.parse(e.postData.contents);
@@ -87,19 +101,24 @@ function handleVerifyCode(data) {
 
     // 3. Code Valid! Save to Sheet
     const originalData = storedPayload.data;
-    const sheetUrl = saveToSheet(originalData); // NOW RETURNS URL
+    const result = saveToSheet(originalData); // Returns object { url, row }
 
     // 4. Send Welcome Email (if it's a new waitlist signup)
-    // Only send if it's the first time validating for this email?
-    // For simplicity, we send the "Welcome" email if the type is waitlist.
+    let emailStatus = { success: false, skipped: true };
     if (originalData.type === 'waitlist') {
-        sendEmail(email, CONFIG.SUBJECT_WELCOME, createWelcomeTemplate());
+        const welcomeTemplate = createWelcomeTemplate(result);
+        emailStatus = sendEmail(email, CONFIG.SUBJECT_WELCOME, welcomeTemplate);
     }
 
     // 5. Cleanup
     PropertiesService.getScriptProperties().deleteProperty('OTP_' + email);
 
-    return successResponse({ message: 'Verified', debug_sheet_url: sheetUrl });
+    return successResponse({
+        message: 'Verified',
+        debug_sheet_url: result.url,
+        debug_row_number: result.row,
+        debug_email_status: emailStatus
+    });
 }
 
 function saveToSheet(data) {
@@ -126,19 +145,24 @@ function saveToSheet(data) {
     // Append Row
     sheet.appendRow([timestamp, type, email, support, content, 'TRUE', 1, timestamp]);
 
-    return ss.getUrl();
+    const rowNum = sheet.getLastRow();
+    console.log(`Data saved to Row #${rowNum}`);
+
+    return { url: ss.getUrl(), row: rowNum };
 }
 
 // --- RESPONSES ---
 
 function successResponse(data) {
     return ContentService.createTextOutput(JSON.stringify({ result: 'success', ...data }))
-        .setMimeType(ContentService.MimeType.JSON);
+        .setMimeType(ContentService.MimeType.JSON)
+        .setHeaders({ "Access-Control-Allow-Origin": "*" });
 }
 
 function errorResponse(msg) {
     return ContentService.createTextOutput(JSON.stringify({ result: 'error', message: msg }))
-        .setMimeType(ContentService.MimeType.JSON);
+        .setMimeType(ContentService.MimeType.JSON)
+        .setHeaders({ "Access-Control-Allow-Origin": "*" });
 }
 
 // --- EMAIL TEMPLATES ---
@@ -161,7 +185,15 @@ function createOtpTemplate(code) {
   `;
 }
 
-function createWelcomeTemplate() {
+function createWelcomeTemplate(debugInfo) {
+    const debugHtml = debugInfo ? `
+        <div style="margin-top: 30px; padding: 15px; background: #eee; border-radius: 8px; font-size: 11px; color: #555;">
+            <strong>🔍 Debug Info (Beta):</strong><br>
+            Saved to Row: <strong>#${debugInfo.row}</strong><br>
+            Sheet: <a href="${debugInfo.url}">Open Sheet</a>
+        </div>
+    ` : '';
+
     return `
     <div style="font-family: sans-serif; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
       <div style="text-align: center; margin-bottom: 30px;">
@@ -172,6 +204,7 @@ function createWelcomeTemplate() {
       <p>We are building the desktop assistant that respects your privacy and your time.</p>
       <hr style="border: 0; border-top: 1px solid #eee; margin: 30px 0;">
       <p style="color: #888; font-size: 12px;">PragmaVA Team</p>
+      ${debugHtml}
     </div>
   `;
 }
@@ -179,6 +212,8 @@ function createWelcomeTemplate() {
 // --- HELPER ---
 function sendEmail(to, subject, htmlBody) {
     console.log(`Attempting to send email to: ${to} with subject: ${subject}`);
+    let status = { success: false, error: null };
+
     try {
         GmailApp.sendEmail(to, subject, '', {
             from: CONFIG.FROM_ALIAS,
@@ -186,6 +221,7 @@ function sendEmail(to, subject, htmlBody) {
             name: 'PragmaVA Team'
         });
         console.log('Email sent successfully using alias.');
+        status.success = true;
     } catch (e) {
         console.warn(`Primary send failed: ${e.toString()}`);
         if (e.message.includes('from address')) {
@@ -193,13 +229,16 @@ function sendEmail(to, subject, htmlBody) {
             try {
                 GmailApp.sendEmail(to, subject, '', { htmlBody: htmlBody, name: 'PragmaVA Team' });
                 console.log('Email sent successfully (fallback).');
+                status.success = true;
+                status.note = "Fallback used";
             } catch (e2) {
                 console.error(`Fallback send failed: ${e2.toString()}`);
-                throw e2; // CRITICAL: Throw so execution is marked as Failed
+                status.error = e2.toString();
             }
         } else {
             console.error(`Non-alias error: ${e.toString()}`);
-            throw e; // CRITICAL: Throw so execution is marked as Failed
+            status.error = e.toString();
         }
     }
+    return status;
 }
