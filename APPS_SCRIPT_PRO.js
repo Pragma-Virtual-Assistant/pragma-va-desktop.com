@@ -1,5 +1,5 @@
 /**
- * PragmaVA Advanced Form Handler (v2 - OTP Edition)
+ * PragmaVA Advanced Form Handler (v4 - DEBUG EDITION)
  * 
  * FEATURES:
  * 1. OTP Verification for ALL submissions (Waitlist, Idea, Contact).
@@ -170,16 +170,28 @@ function createWelcomeTemplate() {
 
 // --- HELPER ---
 function sendEmail(to, subject, htmlBody) {
+    console.log(`Attempting to send email to: ${to} with subject: ${subject}`);
     try {
         GmailApp.sendEmail(to, subject, '', {
             from: CONFIG.FROM_ALIAS,
             htmlBody: htmlBody,
             name: 'PragmaVA Team'
         });
+        console.log('Email sent successfully using alias.');
     } catch (e) {
+        console.warn(`Primary send failed: ${e.toString()}`);
         if (e.message.includes('from address')) {
-            // Fallback if alias is wrong
-            GmailApp.sendEmail(to, subject, '', { htmlBody: htmlBody, name: 'PragmaVA Team' });
+            console.log('Retrying without alias...');
+            try {
+                GmailApp.sendEmail(to, subject, '', { htmlBody: htmlBody, name: 'PragmaVA Team' });
+                console.log('Email sent successfully (fallback).');
+            } catch (e2) {
+                console.error(`Fallback send failed: ${e2.toString()}`);
+                throw e2; // CRITICAL: Throw so execution is marked as Failed
+            }
+        } else {
+            console.error(`Non-alias error: ${e.toString()}`);
+            throw e; // CRITICAL: Throw so execution is marked as Failed
         }
     }
 }

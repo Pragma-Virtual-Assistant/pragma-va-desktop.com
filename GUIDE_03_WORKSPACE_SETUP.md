@@ -56,4 +56,14 @@ To make the site use the new secret, we need to trigger a redeploy.
 3.  Top right, click **Re-run jobs** -> **Re-run all jobs**.
     *   *Alternatively:* You can push a small change (like a whitespace change) to trigger it.
 
-**Done!** Your site is now backed by your Workspace account.
+## 7. Troubleshooting Email & OTP
+If the form says "Success" but you receive no email:
+
+1.  **Check Script Version**: Ensure your `Code.gs` starts with `v3 - DEBUG EDITION`.
+2.  **Check Execution Logs**:
+    -   Go to Apps Script -> **Executions** (Clock icon).
+    -   Look for **Failed** status (Red).
+    -   Click the row to see the error (e.g., `Invalid argument: from address`).
+    -   *Fix:* Change `FROM_ALIAS` in the code to your primary email if the alias is not verified.
+
+**Done!** Your site is now backed by your Workspace account with OTP Verification.

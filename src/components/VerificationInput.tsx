@@ -55,6 +55,7 @@ export function VerificationInput({ onComplete, isLoading, onCancel, email }: Ve
                         ref={el => inputRefs.current[idx] = el}
                         type="text"
                         maxLength={1}
+                        aria-label={`Digit ${idx + 1}`}
                         value={digit}
                         onChange={(e) => handleChange(idx, e.target.value)}
                         onKeyDown={(e) => handleKeyDown(idx, e)}
