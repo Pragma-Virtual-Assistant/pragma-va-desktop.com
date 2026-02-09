@@ -24,7 +24,7 @@ function App() {
                     <div>
                         <h2 className="text-3xl md:text-5xl font-bold mb-6">Join the early-access waitlist.</h2>
                         <p className="text-xl text-gray-600 dark:text-gray-400 mb-8">
-                            Help shape the roadmap and get <span className="text-blue-600 font-bold">50% off</span> your first year when we launch.
+                            Help shape the roadmap and get <span className="text-blue-600 font-bold">3 months free</span> and after <span className="text-blue-600 font-bold">50% off</span> your first year when we launch.
                         </p>
                         <WaitlistForm />
                     </div>

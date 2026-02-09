@@ -29,6 +29,7 @@ export function WaitlistForm() {
                 body: JSON.stringify({ type: 'waitlist', email, support }),
             });
             setStatus('success');
+            localStorage.setItem('pragma_user_email', email);
             setEmail('');
             setSupport(false);
         } catch (error) {

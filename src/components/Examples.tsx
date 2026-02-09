@@ -15,7 +15,7 @@ const EXAMPLES = [
     {
         icon: FileText,
         title: 'Weekly Reports',
-        description: 'Generate comprehensive summaries of your project activity across Jira, Slack, and GitHub.'
+        description: 'Generate comprehensive summaries of your project activity across Jira, Slack, GitHub and much more.'
     }
 ];
 

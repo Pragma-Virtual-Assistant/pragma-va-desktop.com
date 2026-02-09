@@ -10,7 +10,7 @@ const BENEFITS = [
     {
         icon: Zap,
         title: 'Automate Tasks',
-        description: 'Let PragmaVA handle the repetitive clicking and typing. Create workflows that work across your desktop apps.'
+        description: 'Let PragmaVA handle the repetitive clicking and typing. Create workflows that work across your desktop apps and web, automating anything anywhere.'
     },
     {
         icon: History,

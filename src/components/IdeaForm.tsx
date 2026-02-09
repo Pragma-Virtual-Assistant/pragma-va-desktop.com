@@ -1,9 +1,19 @@
-import React, { useState } from 'react';
-import { Lightbulb, Loader2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Lightbulb, Loader2, Mail } from 'lucide-react';
 
 export function IdeaForm() {
     const [idea, setIdea] = useState('');
+    const [email, setEmail] = useState('');
+    const [storedEmail, setStoredEmail] = useState<string | null>(null);
     const [status, setStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
+
+    useEffect(() => {
+        const saved = localStorage.getItem('pragma_user_email');
+        if (saved) {
+            setStoredEmail(saved);
+            setEmail(saved);
+        }
+    }, []);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -22,10 +32,13 @@ export function IdeaForm() {
                 method: 'POST',
                 mode: 'no-cors',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ type: 'idea', idea }),
+                body: JSON.stringify({ type: 'idea', idea, email }),
             });
             setStatus('success');
             setIdea('');
+            if (email) {
+                localStorage.setItem('pragma_user_email', email);
+            }
         } catch (error) {
             setStatus('error');
         }
@@ -54,6 +67,39 @@ export function IdeaForm() {
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
+                {/* Smart Email State */}
+                {storedEmail ? (
+                    <div className="flex items-center gap-2 text-sm text-gray-500 justify-center">
+                        <span className="flex items-center gap-1">
+                            <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                            Contributing as <span className="font-medium text-gray-700 dark:text-gray-300">{storedEmail}</span>
+                        </span>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                localStorage.removeItem('pragma_user_email');
+                                setStoredEmail(null);
+                                setEmail('');
+                            }}
+                            className="text-blue-500 hover:text-blue-600 underline text-xs"
+                        >
+                            Change
+                        </button>
+                    </div>
+                ) : (
+                    <div className="relative">
+                        <Mail className="absolute left-4 top-3.5 w-5 h-5 text-gray-400" />
+                        <input
+                            type="email"
+                            required
+                            placeholder="Your email (mandatory for updates)"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            className="w-full pl-12 pr-4 py-3 rounded-2xl border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-900 focus:ring-2 focus:ring-primary outline-none transition-all"
+                        />
+                    </div>
+                )}
+
                 <textarea
                     required
                     value={idea}
@@ -61,6 +107,7 @@ export function IdeaForm() {
                     placeholder="e.g. I want it to organize my downloads folder every Friday..."
                     className="w-full h-32 px-4 py-3 rounded-2xl border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-900 focus:ring-2 focus:ring-primary outline-none resize-none transition-all"
                 />
+
                 <button
                     type="submit"
                     disabled={status === 'submitting'}
