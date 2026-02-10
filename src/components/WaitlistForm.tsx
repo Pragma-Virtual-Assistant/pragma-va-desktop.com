@@ -5,6 +5,7 @@ export function WaitlistForm() {
     const [email, setEmail] = useState('');
     const [support, setSupport] = useState(false);
     const [status, setStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
+    const [errorMessage, setErrorMessage] = useState('');
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -35,6 +36,7 @@ export function WaitlistForm() {
         } catch (error) {
             console.error('Error submitting form', error);
             setStatus('error');
+            setErrorMessage(error instanceof Error ? error.message : 'Unknown error');
         }
     };
 
@@ -99,7 +101,11 @@ export function WaitlistForm() {
             </label>
 
             {status === 'error' && (
-                <p className="text-red-500 text-sm text-center">Something went wrong. Please try again.</p>
+                <div className="text-red-500 text-sm text-center">
+                    <p className="font-bold">Something went wrong.</p>
+                    <p className="text-xs mt-1 opacity-75">{errorMessage}</p>
+                    <p className="text-xs mt-1">Check Console (F12) for details.</p>
+                </div>
             )}
         </form>
     );
