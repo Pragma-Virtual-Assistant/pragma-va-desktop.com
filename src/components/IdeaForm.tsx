@@ -31,7 +31,7 @@ export function IdeaForm() {
             await fetch(scriptUrl, {
                 method: 'POST',
                 // mode: 'no-cors' REMOVED
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                 body: JSON.stringify({ type: 'idea', idea, email }),
             });
             setStatus('success');
