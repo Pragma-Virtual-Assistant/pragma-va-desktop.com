@@ -1,5 +1,5 @@
 /**
- * PragmaVA Advanced Form Handler (v16 - FINAL STABLE)
+ * PragmaVA Advanced Form Handler (v17 - FINAL STABLE)
  * 
  * CHANGES:
  * 1. Removed invalid .setHeaders() calls (Fixed TypeError).
@@ -21,7 +21,7 @@ function doOptions(e) {
 }
 
 function doGet(e) {
-    return ContentService.createTextOutput("PragmaVA API is Active (v16). Use POST to submit.")
+    return ContentService.createTextOutput("PragmaVA API is Active (v17). Use POST to submit.")
         .setMimeType(ContentService.MimeType.TEXT);
 }
 
@@ -34,7 +34,7 @@ function doPost(e) {
         console.error("Lock Failed: " + e.toString());
     }
 
-    console.log("!!! VERSION 16 - FINAL STABLE STARTED !!!");
+    console.log("!!! VERSION 17 - FINAL STABLE STARTED !!!");
 
     try {
         if (!e) throw new Error("Event object 'e' is undefined. Run from Web App, not Editor.");
@@ -56,6 +56,8 @@ function doPost(e) {
             return handleRequestCode(data);
         } else if (action === 'verify_code') {
             return handleVerifyCode(data);
+        } else if (action === 'submit') { // NEW: Handle generic submissions
+            return handleGenericSubmit(data);
         } else {
             return errorResponse('Invalid action: ' + action);
         }
@@ -132,6 +134,26 @@ function handleVerifyCode(data) {
         });
     } catch (e) {
         throw new Error("Handler Verify Error: " + e.toString());
+    }
+}
+
+function handleGenericSubmit(data) {
+    try {
+        const result = saveToSheet(data);
+
+        // Optional: Send Email for Contact Form
+        if (data.type === 'contact') {
+            const subject = "New Contact: " + (data.email || 'Unknown');
+            const body = "New Message:\n\n" + JSON.stringify(data, null, 2);
+            sendEmail(CONFIG.FROM_ALIAS, subject, body);
+        }
+
+        return successResponse({
+            message: 'Saved',
+            row: result.row
+        });
+    } catch (e) {
+        throw new Error("Handler Submit Error: " + e.toString());
     }
 }
 
