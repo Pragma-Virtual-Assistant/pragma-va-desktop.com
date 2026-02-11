@@ -28,6 +28,11 @@ jobs:
           node-version: 20
           cache: 'npm'
 
+      - name: Debug Identity
+        run: |
+          gcloud auth list
+          gcloud config get-value project
+
       - name: Install Frontend Dependencies
         run: npm ci
 
@@ -46,4 +51,5 @@ jobs:
       - name: Deploy to Firebase
         run: |
           # Deploy everything (Functions + Hosting + Firestore)
-          firebase deploy --non-interactive --project pragmavadesktopinfowebsite
+          # We use --force to ensure it doesn't prompt for anything
+          firebase deploy --non-interactive --project pragmavadesktopinfowebsite --force
