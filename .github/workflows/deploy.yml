@@ -5,12 +5,22 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
+permissions:
+  contents: read
+  id-token: write
+
 jobs:
   build_and_deploy:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repo
         uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: 'projects/542492384641/locations/global/workloadIdentityPools/github-actions-pool/providers/github'
+          service_account: 'firebase-adminsdk-fbsvc@pragmavadesktopinfowebsite.iam.gserviceaccount.com'
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -27,29 +37,10 @@ jobs:
           # Injected into the build for the frontend to use
           VITE_API_BASE_URL: "https://us-central1-pragmavadesktopinfowebsite.cloudfunctions.net/api"
 
-      - name: Deploy to Firebase
-        uses: FirebaseExtended/action-hosting-deploy@v0
-        with:
-          repoToken: '${{ secrets.GITHUB_TOKEN }}'
-          firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_PRAGMAVADESKTOPINFOWEBSITE }}'
-          channelId: live
-          projectId: pragmavadesktopinfowebsite
-          # This action primarily handles Hosting. For Functions, we might need a separate step or custom command 
-          # IF the user grants the service account sufficient permissions. 
-          # However, 'action-hosting-deploy' is safer for PR previews. 
-          # For LIVE deployment including functions, we use 'firebase-tools' directly below.
-
       - name: Install Firebase Tools
         run: npm install -g firebase-tools
 
-      - name: Deploy Functions & Hosting (Native)
-        env:
-          # User must set this secret in GitHub Repo Settings
-          FIREBASE_SERVICE_ACCOUNT_PRAGMAVADESKTOPINFOWEBSITE: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_PRAGMAVADESKTOPINFOWEBSITE }}
+      - name: Deploy to Firebase
         run: |
-          # Authenticate via the Service Account JSON (if provided) or Token
-          echo "$FIREBASE_SERVICE_ACCOUNT_PRAGMAVADESKTOPINFOWEBSITE" > service-account.json
-          export GOOGLE_APPLICATION_CREDENTIALS=service-account.json
-          
           # Deploy everything (Functions + Hosting + Firestore)
           firebase deploy --non-interactive --project pragmavadesktopinfowebsite
