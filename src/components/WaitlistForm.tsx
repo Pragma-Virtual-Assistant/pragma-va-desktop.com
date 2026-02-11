@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Send, Loader2 } from 'lucide-react';
+import { submitData } from '../utils/api';
 
 export function WaitlistForm() {
     const [email, setEmail] = useState('');
@@ -11,24 +12,9 @@ export function WaitlistForm() {
         e.preventDefault();
         setStatus('submitting');
 
-        const scriptUrl = import.meta.env.VITE_GOOGLE_SCRIPT_URL; // To be configured
-
-        if (!scriptUrl) {
-            console.warn('Google Script URL not returned');
-            // Simulate success for demo if no URL
-            setTimeout(() => setStatus('success'), 1000);
-            return;
-        }
-
         try {
-            await fetch(scriptUrl, {
-                method: 'POST',
-                // mode: 'no-cors' REMOVED to read response
-                headers: {
-                    'Content-Type': 'text/plain;charset=utf-8',
-                },
-                body: JSON.stringify({ type: 'waitlist', email, support }),
-            });
+            await submitData({ type: 'waitlist', email, support });
+
             setStatus('success');
             localStorage.setItem('pragma_user_email', email);
             setEmail('');

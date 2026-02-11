@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Send, Loader2 } from 'lucide-react';
+import { submitData } from '../utils/api';
 
 export function ContactSection() {
     const [email, setEmail] = useState('');
@@ -10,23 +11,11 @@ export function ContactSection() {
         e.preventDefault();
         setStatus('submitting');
 
-        const scriptUrl = import.meta.env.VITE_GOOGLE_SCRIPT_URL;
-
-        if (!scriptUrl) {
-            setTimeout(() => setStatus('success'), 1000);
-            return;
-        }
-
         try {
-            await fetch(scriptUrl, {
-                method: 'POST',
-                // mode: 'no-cors' REMOVED
-                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                body: JSON.stringify({
-                    type: 'contact',
-                    email,
-                    idea: `[Investor] ${message}` // Prefix with Investor tag for easier filtering
-                }),
+            await submitData({
+                type: 'contact',
+                email,
+                idea: `[Investor] ${message}` // Legacy mapping: 'idea' field used for contact message in backend
             });
             setStatus('success');
             setEmail('');

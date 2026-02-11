@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Lightbulb, Loader2, Mail } from 'lucide-react';
+import { submitData } from '../utils/api';
 
 export function IdeaForm() {
     const [idea, setIdea] = useState('');
@@ -19,21 +20,8 @@ export function IdeaForm() {
         e.preventDefault();
         setStatus('submitting');
 
-        const scriptUrl = import.meta.env.VITE_GOOGLE_SCRIPT_URL;
-
-        if (!scriptUrl) {
-            // Simulate success
-            setTimeout(() => setStatus('success'), 1000);
-            return;
-        }
-
         try {
-            await fetch(scriptUrl, {
-                method: 'POST',
-                // mode: 'no-cors' REMOVED
-                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                body: JSON.stringify({ type: 'idea', idea, email }),
-            });
+            await submitData({ type: 'idea', idea, email });
             setStatus('success');
             setIdea('');
             if (email) {
