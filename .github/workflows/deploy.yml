@@ -52,4 +52,4 @@ jobs:
         run: |
           # Deploy everything (Functions + Hosting + Firestore)
           # We use --force to ensure it doesn't prompt for anything
-          firebase deploy --non-interactive --project pragmavadesktopinfowebsite --force
+          npx firebase-tools deploy --non-interactive --project pragmavadesktopinfowebsite --force --debug
