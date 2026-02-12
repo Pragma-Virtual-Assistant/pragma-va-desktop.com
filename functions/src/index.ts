@@ -13,10 +13,9 @@ const CONFIG = {
 };
 
 /**
- * Gen 1 API Endpoint
- * We explicitly set region and runWith to avoid Gen 2 resource conflicts.
+ * Gen 1 API Endpoint - Renamed to apiV1 to bypass Gen 2 metadata conflicts.
  */
-export const api = functions
+export const apiV1 = functions
     .region('us-central1')
     .runWith({
         secrets: ['GMAIL_EMAIL', 'GMAIL_PASSWORD'],
