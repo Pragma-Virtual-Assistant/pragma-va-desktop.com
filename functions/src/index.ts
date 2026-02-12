@@ -14,48 +14,50 @@ const CONFIG = {
 
 /**
  * Gen 1 API Endpoint
- * We use runWith to define secrets for Gen 1.
+ * We explicitly set region and runWith to avoid Gen 2 resource conflicts.
  */
-export const api = functions.runWith({
-    secrets: ['GMAIL_EMAIL', 'GMAIL_PASSWORD'],
-    timeoutSeconds: 60,
-    memory: '256MB'
-}).https.onRequest(async (req, res) => {
-    // Enable CORS manually for Gen 1
-    res.set('Access-Control-Allow-Origin', '*');
-    res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+export const api = functions
+    .region('us-central1')
+    .runWith({
+        secrets: ['GMAIL_EMAIL', 'GMAIL_PASSWORD'],
+        timeoutSeconds: 60,
+        memory: '256MB'
+    }).https.onRequest(async (req, res) => {
+        // Enable CORS manually for Gen 1
+        res.set('Access-Control-Allow-Origin', '*');
+        res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+        res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
-    if (req.method === 'OPTIONS') {
-        res.status(204).send('');
-        return;
-    }
-
-    try {
-        if (req.method !== 'POST') {
-            res.status(405).send('Method Not Allowed');
+        if (req.method === 'OPTIONS') {
+            res.status(204).send('');
             return;
         }
 
-        const data = req.body;
-        const action = data.action || 'submit';
+        try {
+            if (req.method !== 'POST') {
+                res.status(405).send('Method Not Allowed');
+                return;
+            }
 
-        // Route Action
-        if (action === 'request_code') {
-            await handleRequestCode(data, res);
-        } else if (action === 'verify_code') {
-            await handleVerifyCode(data, res);
-        } else if (action === 'submit') {
-            await handleGenericSubmit(data, res);
-        } else {
-            res.status(400).json({ result: 'error', message: 'Invalid action: ' + action });
+            const data = req.body;
+            const action = data.action || 'submit';
+
+            // Route Action
+            if (action === 'request_code') {
+                await handleRequestCode(data, res);
+            } else if (action === 'verify_code') {
+                await handleVerifyCode(data, res);
+            } else if (action === 'submit') {
+                await handleGenericSubmit(data, res);
+            } else {
+                res.status(400).json({ result: 'error', message: 'Invalid action: ' + action });
+            }
+
+        } catch (e: any) {
+            console.error("FATAL CRASH:", e);
+            res.status(500).json({ result: 'error', message: e.toString() });
         }
-
-    } catch (e: any) {
-        console.error("FATAL CRASH:", e);
-        res.status(500).json({ result: 'error', message: e.toString() });
-    }
-});
+    });
 
 // --- HANDLERS ---
 
