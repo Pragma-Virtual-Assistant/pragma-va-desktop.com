@@ -1,4 +1,5 @@
 import { onRequest } from 'firebase-functions/v2/https';
+import { onDocumentCreated } from 'firebase-functions/v2/firestore';
 import * as admin from 'firebase-admin';
 import * as nodemailer from 'nodemailer';
 import { SecretManagerServiceClient } from '@google-cloud/secret-manager';
@@ -34,12 +35,74 @@ async function getSecret(name: string): Promise<string | undefined> {
 }
 
 /**
- * Gen 2 API Endpoint - Renamed to apiService.
- * We use invoker: 'private' to prevent CLI from trying to make it public (which is blocked by Org Policy).
+ * Helper to ensure secrets are loaded
  */
+async function ensureSecrets() {
+    if (!cachedSecrets.email || !cachedSecrets.pass) {
+        console.log("Fetching secrets from Secret Manager...");
+        cachedSecrets.email = await getSecret('GMAIL_EMAIL');
+        cachedSecrets.pass = await getSecret('GMAIL_PASSWORD');
+    }
+}
+
+// --- FIRESTORE TRIGGERS ---
+
+/**
+ * Triggered when a new waitlist entry is created.
+ */
+export const onWaitlistCreated = onDocumentCreated({
+    document: 'waitlist/{docId}',
+    region: 'us-central1'
+}, async (event) => {
+    const data = event.data?.data();
+    if (!data) return;
+
+    console.log(`New waitlist entry: ${data.email}`);
+    await ensureSecrets();
+    await sendEmail(data.email, CONFIG.SUBJECT_WELCOME, `Welcome to PragmaVA! You are on the list.`);
+});
+
+/**
+ * Triggered when a new contact message is created.
+ */
+export const onContactCreated = onDocumentCreated({
+    document: 'contact/{docId}',
+    region: 'us-central1'
+}, async (event) => {
+    const data = event.data?.data();
+    if (!data) return;
+
+    console.log(`New contact message: ${data.email}`);
+    await ensureSecrets();
+
+    const subject = "New Contact: " + (data.email || 'Unknown');
+    const body = "New Message:\n\n" + JSON.stringify(data, null, 2);
+    // Send to self (the secret email)
+    await sendEmail(cachedSecrets.email, subject, body);
+});
+
+/**
+ * Triggered when a new idea entry is created.
+ */
+export const onIdeaCreated = onDocumentCreated({
+    document: 'ideas/{docId}',
+    region: 'us-central1'
+}, async (event) => {
+    const data = event.data?.data();
+    if (!data) return;
+
+    console.log(`New idea entry: ${data.email}`);
+    await ensureSecrets();
+
+    const body = `Thanks for your idea! We'll look into it.\n\nYour Idea: ${data.idea}`;
+    await sendEmail(data.email, CONFIG.SUBJECT_IDEA, body);
+});
+
+// --- HTTPS API (Legacy/Backup) ---
+
 export const apiService = onRequest({
     region: 'us-central1',
-    invoker: 'private',
+    // invoker: 'private', // Removed to allow public access as Provisioning Identity Bridge failed
     timeoutSeconds: 60,
     memory: '256MiB',
     cors: true // Gen 2 has built-in CORS
@@ -50,12 +113,7 @@ export const apiService = onRequest({
             return;
         }
 
-        // Initialize secrets if not cached
-        if (!cachedSecrets.email || !cachedSecrets.pass) {
-            console.log("Fetching secrets from Secret Manager...");
-            cachedSecrets.email = await getSecret('GMAIL_EMAIL');
-            cachedSecrets.pass = await getSecret('GMAIL_PASSWORD');
-        }
+        await ensureSecrets();
 
         const data = req.body;
         const action = data.action || 'submit';

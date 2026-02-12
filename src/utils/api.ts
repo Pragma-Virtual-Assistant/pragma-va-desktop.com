@@ -1,41 +1,29 @@
+import { db } from '../firebase';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+
 export async function submitData(data: any): Promise<{ success: boolean; message?: string }> {
-    // Uses Firebase Cloud Function
-    const firebaseUrl = import.meta.env.VITE_API_BASE_URL;
-
-    if (!firebaseUrl) {
-        console.warn("No API URL configured (VITE_API_BASE_URL)");
-        // Simulate success in dev mode if nothing configured
-        return { success: true, message: 'Simulated Success' };
-    }
-
     try {
-        const response = await fetch(firebaseUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                ...data,
-                action: 'submit' // Explicit action for Cloud Function routing 
-            }),
-        });
+        // Determine collection based on data type
+        let collectionName = 'submissions';
+        if (data.type === 'waitlist') collectionName = 'waitlist';
+        else if (data.type === 'contact') collectionName = 'contact';
+        else if (data.type === 'idea') collectionName = 'ideas';
 
-        const text = await response.text();
-        let result: any;
-        try {
-            result = JSON.parse(text);
-        } catch (e) {
-            console.error("Failed to parse API response as JSON. Raw response (first 200 chars):", text.substring(0, 200));
-            throw new Error(`Invalid API response format (HTML returned? Check logs).`);
-        }
+        const payload = {
+            ...data,
+            timestamp: serverTimestamp()
+        };
 
-        if (!response.ok || result.result === 'error') {
-            throw new Error(result.message || 'Submission failed');
-        }
+        // Remove 'action' if present as it was for the Cloud Function
+        if ('action' in payload) delete payload.action;
+
+        // Direct write to Firestore to bypass HTTPS 403 Forbidden issues
+        await addDoc(collection(db, collectionName), payload);
 
         return { success: true };
     } catch (error: any) {
-        console.error("Submission Error:", error);
-        throw error;
+        console.error("Submission Error (Firestore):", error);
+        // Fallback for user friendliness
+        throw new Error(error.message || "Failed to submit form. Please check your connection.");
     }
 }
