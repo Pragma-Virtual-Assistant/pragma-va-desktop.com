@@ -1,4 +1,4 @@
-import * as functions from 'firebase-functions';
+import { onRequest } from 'firebase-functions/v2/https';
 import * as admin from 'firebase-admin';
 import * as nodemailer from 'nodemailer';
 import { SecretManagerServiceClient } from '@google-cloud/secret-manager';
@@ -34,57 +34,48 @@ async function getSecret(name: string): Promise<string | undefined> {
 }
 
 /**
- * Gen 1 API Endpoint - Renamed to apiV1 to bypass Gen 2 metadata conflicts.
- * We removed the `secrets` array to bypass CLI authorization 403s.
+ * Gen 2 API Endpoint - Renamed to apiService.
+ * We use invoker: 'private' to prevent CLI from trying to make it public (which is blocked by Org Policy).
  */
-export const apiV1 = functions
-    .region('us-central1')
-    .runWith({
-        timeoutSeconds: 60,
-        memory: '256MB'
-    }).https.onRequest(async (req, res) => {
-        // Enable CORS manually for Gen 1
-        res.set('Access-Control-Allow-Origin', '*');
-        res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-        res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-
-        if (req.method === 'OPTIONS') {
-            res.status(204).send('');
+export const apiService = onRequest({
+    region: 'us-central1',
+    invoker: 'private',
+    timeoutSeconds: 60,
+    memory: '256MiB',
+    cors: true // Gen 2 has built-in CORS
+}, async (req, res) => {
+    try {
+        if (req.method !== 'POST') {
+            res.status(405).send('Method Not Allowed');
             return;
         }
 
-        try {
-            if (req.method !== 'POST') {
-                res.status(405).send('Method Not Allowed');
-                return;
-            }
-
-            // Initialize secrets if not cached
-            if (!cachedSecrets.email || !cachedSecrets.pass) {
-                console.log("Fetching secrets from Secret Manager...");
-                cachedSecrets.email = await getSecret('GMAIL_EMAIL');
-                cachedSecrets.pass = await getSecret('GMAIL_PASSWORD');
-            }
-
-            const data = req.body;
-            const action = data.action || 'submit';
-
-            // Route Action
-            if (action === 'request_code') {
-                await handleRequestCode(data, res);
-            } else if (action === 'verify_code') {
-                await handleVerifyCode(data, res);
-            } else if (action === 'submit') {
-                await handleGenericSubmit(data, res);
-            } else {
-                res.status(400).json({ result: 'error', message: 'Invalid action: ' + action });
-            }
-
-        } catch (e: any) {
-            console.error("FATAL CRASH:", e);
-            res.status(500).json({ result: 'error', message: e.toString() });
+        // Initialize secrets if not cached
+        if (!cachedSecrets.email || !cachedSecrets.pass) {
+            console.log("Fetching secrets from Secret Manager...");
+            cachedSecrets.email = await getSecret('GMAIL_EMAIL');
+            cachedSecrets.pass = await getSecret('GMAIL_PASSWORD');
         }
-    });
+
+        const data = req.body;
+        const action = data.action || 'submit';
+
+        // Route Action
+        if (action === 'request_code') {
+            await handleRequestCode(data, res);
+        } else if (action === 'verify_code') {
+            await handleVerifyCode(data, res);
+        } else if (action === 'submit') {
+            await handleGenericSubmit(data, res);
+        } else {
+            res.status(400).json({ result: 'error', message: 'Invalid action: ' + action });
+        }
+
+    } catch (e: any) {
+        console.error("FATAL CRASH:", e);
+        res.status(500).json({ result: 'error', message: e.toString() });
+    }
+});
 
 // --- HANDLERS ---
 
