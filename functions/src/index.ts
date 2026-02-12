@@ -1,14 +1,9 @@
-import { onRequest } from 'firebase-functions/v2/https';
-import { defineSecret } from 'firebase-functions/params';
+import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import * as nodemailer from 'nodemailer';
 
 admin.initializeApp();
 const db = admin.firestore();
-
-// Define Secrets
-const GMAIL_EMAIL = defineSecret('GMAIL_EMAIL');
-const GMAIL_PASSWORD = defineSecret('GMAIL_PASSWORD');
 
 const CONFIG = {
     FROM_ALIAS: 'PragmaVA Team <contact@pragma-va-desktop.com>',
@@ -17,14 +12,24 @@ const CONFIG = {
     SUBJECT_IDEA: 'PragmaVA: Idea Received'
 };
 
-export const api = onRequest({
-    region: 'us-central1',
-    cors: true,
-    secrets: [GMAIL_EMAIL, GMAIL_PASSWORD]
-}, async (req, res) => {
-    // CORS Preflight is handled by the `cors: true` option in Gen 2, 
-    // but explicit handling for complicated cases or local dev sometimes helps.
-    // We rely on the framework's built-in CORS for simplicity.
+/**
+ * Gen 1 API Endpoint
+ * We use runWith to define secrets for Gen 1.
+ */
+export const api = functions.runWith({
+    secrets: ['GMAIL_EMAIL', 'GMAIL_PASSWORD'],
+    timeoutSeconds: 60,
+    memory: '256MB'
+}).https.onRequest(async (req, res) => {
+    // Enable CORS manually for Gen 1
+    res.set('Access-Control-Allow-Origin', '*');
+    res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+    if (req.method === 'OPTIONS') {
+        res.status(204).send('');
+        return;
+    }
 
     try {
         if (req.method !== 'POST') {
@@ -108,7 +113,6 @@ async function handleVerifyCode(data: any, res: any) {
     await docRef.delete();
 
     // Welcome Email if Waitlist
-    // Note: We use the secret value for the sender/admin email if needed
     if (originalData.type === 'waitlist') {
         await sendEmail(email, CONFIG.SUBJECT_WELCOME, `Welcome to PragmaVA! You are on the list.`);
     }
@@ -141,7 +145,7 @@ async function processSubmission(data: any) {
         const subject = "New Contact: " + (data.email || 'Unknown');
         const body = "New Message:\n\n" + JSON.stringify(data, null, 2);
         // Send to self (the secret email)
-        await sendEmail(GMAIL_EMAIL.value(), subject, body);
+        await sendEmail(process.env.GMAIL_EMAIL, subject, body);
     }
     else if (data.type === 'waitlist') {
         await sendEmail(data.email, CONFIG.SUBJECT_WELCOME, `Welcome to PragmaVA! You are on the list.`);
@@ -153,9 +157,9 @@ async function processSubmission(data: any) {
 }
 
 async function sendEmail(to: string | undefined, subject: string, text: string) {
-    // Access secrets via .value()
-    const emailUser = GMAIL_EMAIL.value();
-    const emailPass = GMAIL_PASSWORD.value();
+    // Access secrets via process.env in Gen 1
+    const emailUser = process.env.GMAIL_EMAIL;
+    const emailPass = process.env.GMAIL_PASSWORD;
 
     if (!to || !emailUser || !emailPass) {
         console.warn("Email skipped: Missing 'to' address or Gmail credentials.");
