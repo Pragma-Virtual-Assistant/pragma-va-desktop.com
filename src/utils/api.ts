@@ -20,7 +20,14 @@ export async function submitData(data: any): Promise<{ success: boolean; message
             }),
         });
 
-        const result = await response.json();
+        const text = await response.text();
+        let result: any;
+        try {
+            result = JSON.parse(text);
+        } catch (e) {
+            console.error("Failed to parse API response as JSON. Raw response (first 200 chars):", text.substring(0, 200));
+            throw new Error(`Invalid API response format (HTML returned? Check logs).`);
+        }
 
         if (!response.ok || result.result === 'error') {
             throw new Error(result.message || 'Submission failed');
