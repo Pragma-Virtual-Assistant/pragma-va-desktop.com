@@ -27,7 +27,6 @@ export function Hero({ onJoinClick }: HeroProps) {
 
                 <h1 className="text-5xl md:text-7xl font-extrabold tracking-tight text-gray-900 dark:text-white leading-tight mb-8">
                     One simple control center for all your <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600">workspaces</span>.
-                    <span className="block text-sm text-blue-500 font-mono mt-4">(v58 Clean Video End)</span>
                 </h1>
                 <p className="text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto leading-relaxed">
                     PragmaVA is the local desktop assistant that unifies your digital life.
