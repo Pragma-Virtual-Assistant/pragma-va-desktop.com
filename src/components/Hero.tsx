@@ -27,7 +27,7 @@ export function Hero({ onJoinClick }: HeroProps) {
 
                 <h1 className="text-5xl md:text-7xl font-extrabold tracking-tight text-gray-900 dark:text-white leading-tight mb-8">
                     One simple control center for all your <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600">workspaces</span>.
-                    <span className="block text-sm text-blue-500 font-mono mt-4">(v56 Security & Privacy Fix)</span>
+                    <span className="block text-sm text-blue-500 font-mono mt-4">(v57 Demo Video)</span>
                 </h1>
                 <p className="text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto leading-relaxed">
                     PragmaVA is the local desktop assistant that unifies your digital life.
@@ -47,6 +47,25 @@ export function Hero({ onJoinClick }: HeroProps) {
                     >
                         Learn more
                     </a>
+                </div>
+
+                {/* YouTube Demo Video */}
+                <div className="pt-12 max-w-3xl mx-auto">
+                    <div className="relative aspect-video rounded-3xl overflow-hidden shadow-2xl border border-gray-200 dark:border-gray-700 group">
+                        <div className="absolute inset-0 bg-blue-500/10 mix-blend-overlay group-hover:bg-transparent transition-colors duration-500"></div>
+                        <iframe
+                            className="absolute inset-0 w-full h-full"
+                            src="https://www.youtube.com/embed/jzaiBP1nBbg"
+                            title="PragmaVA Demo"
+                            frameBorder="0"
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                            allowFullScreen
+                        ></iframe>
+                    </div>
+                    <div className="mt-4 flex items-center justify-center gap-2 text-sm text-gray-500 font-medium">
+                        <span className="w-2 h-2 rounded-full bg-red-500"></span>
+                        See PragmaVA in Action
+                    </div>
                 </div>
             </div>
         </section>
