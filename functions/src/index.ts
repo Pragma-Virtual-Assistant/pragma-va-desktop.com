@@ -287,6 +287,7 @@ async function sendEmail(to: string | undefined, subject: string, text: string) 
     }
 
     try {
+        console.log(`Setting up SMTP transporter for ${emailUser} (Alias: ${CONFIG.FROM_ALIAS})`);
         const transporter = nodemailer.createTransport({
             service: 'gmail',
             auth: {
@@ -295,14 +296,15 @@ async function sendEmail(to: string | undefined, subject: string, text: string) 
             }
         });
 
-        await transporter.sendMail({
+        console.log(`Attempting to send email to ${to}...`);
+        const info = await transporter.sendMail({
             from: CONFIG.FROM_ALIAS,
             to: to,
             subject: subject,
             text: text,
             html: text.replace(/\n/g, '<br>') // Simple HTML fallback
         });
-        console.log(`Email sent to ${to}`);
+        console.log(`Email sent successfully to ${to}. MessageId: ${info.messageId}`);
     } catch (e) {
         console.error("Email Failed:", e);
     }
