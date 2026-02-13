@@ -102,7 +102,6 @@ export const onIdeaCreated = onDocumentCreated({
 
 export const apiService = onRequest({
     region: 'us-central1',
-    invoker: 'public', // Explicitly public for Hosting proxy compatibility
     timeoutSeconds: 60,
     memory: '256MiB',
     cors: true // Gen 2 has built-in CORS
