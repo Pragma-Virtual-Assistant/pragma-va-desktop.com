@@ -9,9 +9,33 @@ export function WaitlistForm() {
     const [step, setStep] = useState<'email' | 'verification' | 'success'>('email');
     const [status, setStatus] = useState<'idle' | 'submitting' | 'error'>('idle');
     const [errorMessage, setErrorMessage] = useState('');
+    const [blockedUntil, setBlockedUntil] = useState<number | null>(null);
+    const [timeLeft, setTimeLeft] = useState<number>(0);
+
+    React.useEffect(() => {
+        if (!blockedUntil) return;
+
+        const interval = setInterval(() => {
+            const now = Date.now();
+            const diff = Math.ceil((blockedUntil - now) / 1000);
+            if (diff <= 0) {
+                setBlockedUntil(null);
+                setTimeLeft(0);
+                setStatus('idle');
+                setErrorMessage('');
+                clearInterval(interval);
+            } else {
+                setTimeLeft(diff);
+            }
+        }, 1000);
+
+        return () => clearInterval(interval);
+    }, [blockedUntil]);
 
     const handleRequestCode = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (blockedUntil && timeLeft > 0) return;
+
         setStatus('submitting');
         setErrorMessage('');
 
@@ -23,7 +47,11 @@ export function WaitlistForm() {
             console.error('Error requesting code', error);
             setStatus('error');
             const msg = error.message || "";
-            if (msg.includes('Unexpected token') || msg.includes('is not valid JSON')) {
+
+            if (error.blockedUntil) {
+                setBlockedUntil(error.blockedUntil);
+                setErrorMessage(`Too many attempts. Blocked for ${Math.ceil((error.blockedUntil - Date.now()) / 1000)}s`);
+            } else if (msg.includes('Unexpected token') || msg.includes('is not valid JSON')) {
                 setErrorMessage('Service temporarily unavailable (API Error). Please try again in 3 minutes.');
             } else {
                 setErrorMessage(msg || 'Failed to send verification code');
@@ -33,6 +61,8 @@ export function WaitlistForm() {
 
     const handleVerifyCode = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (blockedUntil && timeLeft > 0) return;
+
         setStatus('submitting');
         setErrorMessage('');
 
@@ -44,7 +74,13 @@ export function WaitlistForm() {
         } catch (error: any) {
             console.error('Error verifying code', error);
             setStatus('error');
-            setErrorMessage(error.message || 'Invalid or expired code');
+
+            if (error.blockedUntil) {
+                setBlockedUntil(error.blockedUntil);
+                setErrorMessage('Too many failed attempts. Blocked for 5 minutes.');
+            } else {
+                setErrorMessage(error.message || 'Invalid or expired code');
+            }
         }
     };
 
@@ -83,11 +119,13 @@ export function WaitlistForm() {
                     />
                     <button
                         type="submit"
-                        disabled={status === 'submitting' || code.length < 6}
+                        disabled={status === 'submitting' || code.length < 6 || (!!blockedUntil && timeLeft > 0)}
                         className="px-6 py-3 rounded-full bg-primary text-white font-bold hover:bg-primary-dark disabled:opacity-70 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"
                     >
                         {status === 'submitting' ? (
                             <Loader2 className="w-5 h-5 animate-spin" />
+                        ) : timeLeft > 0 ? (
+                            `Wait ${timeLeft}s`
                         ) : (
                             <>Verify & Join <Send className="w-4 h-4" /></>
                         )}

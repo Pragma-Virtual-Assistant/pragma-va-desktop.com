@@ -21,6 +21,22 @@ export function IdeaForm() {
 
     const handleRequestCode = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        // If no email, submit directly as anonymous
+        if (!email.trim()) {
+            setStatus('submitting');
+            try {
+                await submitData({ action: 'submit_idea', idea });
+                setStep('success');
+                setStatus('idle');
+                setIdea('');
+            } catch (error: any) {
+                setStatus('error');
+                setErrorMessage(error.message || 'Failed to submit idea');
+            }
+            return;
+        }
+
         setStatus('submitting');
         setErrorMessage('');
 
@@ -60,7 +76,7 @@ export function IdeaForm() {
                     <Lightbulb className="w-8 h-8" />
                 </div>
                 <h3 className="text-xl font-bold mb-2">Thanks for the idea!</h3>
-                <p className="text-gray-600 dark:text-gray-300">Verified and received. We're building PragmaVA for you.</p>
+                <p className="text-gray-600 dark:text-gray-300">Your feedback has been received. We're building PragmaVA for you.</p>
                 <button
                     onClick={() => { setStep('details'); setStatus('idle'); setIdea(''); setCode(''); }}
                     className="mt-4 text-primary hover:underline"
@@ -75,7 +91,7 @@ export function IdeaForm() {
         return (
             <div className="bg-white dark:bg-gray-800 rounded-3xl p-8 shadow-xl border border-gray-100 dark:border-gray-700 animate-fade-in">
                 <div className="text-center mb-8">
-                    <h3 className="text-2xl font-bold mb-3">Verify Your Idea</h3>
+                    <h3 className="text-2xl font-bold mb-3">Verify Your Email</h3>
                     <p className="text-gray-600 dark:text-gray-400">
                         Enter the 6-digit code sent to <span className="font-semibold">{email}</span>
                     </p>
@@ -126,39 +142,6 @@ export function IdeaForm() {
             </div>
 
             <form onSubmit={handleRequestCode} className="space-y-4">
-                {/* Smart Email State */}
-                {storedEmail ? (
-                    <div className="flex items-center gap-2 text-sm text-gray-500 justify-center">
-                        <span className="flex items-center gap-1">
-                            <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                            Contributing as <span className="font-medium text-gray-700 dark:text-gray-300">{storedEmail}</span>
-                        </span>
-                        <button
-                            type="button"
-                            onClick={() => {
-                                localStorage.removeItem('pragma_user_email');
-                                setStoredEmail(null);
-                                setEmail('');
-                            }}
-                            className="text-blue-500 hover:text-blue-600 underline text-xs"
-                        >
-                            Change
-                        </button>
-                    </div>
-                ) : (
-                    <div className="relative">
-                        <Mail className="absolute left-4 top-3.5 w-5 h-5 text-gray-400" />
-                        <input
-                            type="email"
-                            required
-                            placeholder="Your email (mandatory for updates)"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            className="w-full pl-12 pr-4 py-3 rounded-2xl border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-900 focus:ring-2 focus:ring-primary outline-none transition-all"
-                        />
-                    </div>
-                )}
-
                 <textarea
                     required
                     value={idea}
@@ -167,12 +150,23 @@ export function IdeaForm() {
                     className="w-full h-32 px-4 py-3 rounded-2xl border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-900 focus:ring-2 focus:ring-primary outline-none resize-none transition-all"
                 />
 
+                <div className="relative">
+                    <Mail className="absolute left-4 top-3.5 w-5 h-5 text-gray-400" />
+                    <input
+                        type="email"
+                        placeholder="Your email (optional)"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        className="w-full pl-12 pr-4 py-3 rounded-2xl border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-900 focus:ring-2 focus:ring-primary outline-none transition-all"
+                    />
+                </div>
+
                 <button
                     type="submit"
                     disabled={status === 'submitting'}
                     className="w-full py-4 rounded-xl bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-bold hover:opacity-90 transition-all flex items-center justify-center gap-2"
                 >
-                    {status === 'submitting' ? <Loader2 className="animate-spin" /> : 'Next: Verify Email'}
+                    {status === 'submitting' ? <Loader2 className="animate-spin" /> : 'Submit Idea'}
                 </button>
 
                 {status === 'error' && (

@@ -123,8 +123,8 @@ export const apiService = onRequest({
             await handleRequestCode(data, res);
         } else if (action === 'verify_code') {
             await handleVerifyCode(data, res);
-        } else if (action === 'submit') {
-            await handleGenericSubmit(data, res);
+        } else if (action === 'submit' || action === 'submit_idea') {
+            await handleIdeaSubmit(data, res);
         } else {
             res.status(400).json({ result: 'error', message: 'Invalid action: ' + action });
         }
@@ -144,37 +144,62 @@ async function handleRequestCode(data: any, res: any) {
         return;
     }
 
-    // 1. Check if already in waitlist (only for waitlist type)
+    // 1. Check if already in waitlist (obfuscated for privacy)
+    let isAlreadyRegistered = false;
     if (type === 'waitlist') {
         const existing = await db.collection('waitlist').where('email', '==', email).limit(1).get();
         if (!existing.empty) {
-            res.status(400).json({ result: 'error', message: 'You are already on the waitlist.' });
+            isAlreadyRegistered = true;
+        }
+    }
+
+    // 2. Check for existing block
+    const docRef = db.collection('pending_verifications').doc(email);
+    const doc = await docRef.get();
+    if (doc.exists) {
+        const current = doc.data();
+        const now = admin.firestore.Timestamp.now();
+        if (current?.blockedUntil && current.blockedUntil.toMillis() > now.toMillis()) {
+            res.status(429).json({
+                result: 'error',
+                message: 'Too many attempts.',
+                blockedUntil: current.blockedUntil.toMillis()
+            });
             return;
         }
     }
 
-    // 2. Generate 6-digit code
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
-    const expiresAt = new Date();
-    expiresAt.setMinutes(expiresAt.getMinutes() + 15);
+    // 3. Handle Email Flow
+    if (isAlreadyRegistered) {
+        // Obfuscation: Send "Already Registered" email but return success to UI
+        await sendEmail(
+            email,
+            "PragmaVA Waitlist",
+            "You are already registered on the PragmaVA early-access waitlist. All is good! We will notify you as soon as we launch."
+        );
+    } else {
+        // New User: Send Verification Code
+        const code = Math.floor(100000 + Math.random() * 900000).toString();
+        const expiresAt = new Date();
+        expiresAt.setMinutes(expiresAt.getMinutes() + 15);
 
-    const payload = {
-        code,
-        type,
-        originalData: data,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        expiresAt: admin.firestore.Timestamp.fromDate(expiresAt)
-    };
+        const payload = {
+            code,
+            type,
+            originalData: data,
+            failedAttempts: 0,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            expiresAt: admin.firestore.Timestamp.fromDate(expiresAt)
+        };
 
-    // 3. Save to pending_verifications (Doc ID is email for simplicity and throttling)
-    await db.collection('pending_verifications').doc(email).set(payload);
+        await docRef.set(payload, { merge: true });
 
-    // 4. Send Email
-    await sendEmail(
-        email,
-        `Your Verification Code: ${code}`,
-        `Here is your verification code for the PragmaVA ${type || 'request'}: ${code}. It expires in 15 minutes. If you did not request this, please ignore this email.`
-    );
+        await sendEmail(
+            email,
+            `Your Verification Code: ${code}`,
+            `Here is your verification code for the PragmaVA ${type || 'request'}: ${code}. It expires in 15 minutes. If you did not request this, please ignore this email.`
+        );
+    }
 
     res.json({ result: 'success', message: 'Verification code sent.' });
 }
@@ -199,9 +224,35 @@ async function handleVerifyCode(data: any, res: any) {
     const verification = doc.data();
     const now = admin.firestore.Timestamp.now();
 
-    // 2. Validate
+    // 2. Check for block
+    if (verification?.blockedUntil && verification.blockedUntil.toMillis() > now.toMillis()) {
+        res.status(429).json({
+            result: 'error',
+            message: 'Account temporarily blocked.',
+            blockedUntil: verification.blockedUntil.toMillis()
+        });
+        return;
+    }
+
+    // 3. Validate
     if (verification?.code !== code.toString()) {
-        res.status(400).json({ result: 'error', message: 'Invalid verification code.' });
+        const newAttempts = (verification?.failedAttempts || 0) + 1;
+        const updates: any = { failedAttempts: newAttempts };
+
+        if (newAttempts >= 10) {
+            const blockTime = new Date();
+            blockTime.setMinutes(blockTime.getMinutes() + 5);
+            updates.blockedUntil = admin.firestore.Timestamp.fromDate(blockTime);
+        }
+
+        await docRef.update(updates);
+
+        res.status(400).json({
+            result: 'error',
+            message: newAttempts >= 10 ? 'Too many failed attempts. Blocked for 5 minutes.' : 'Invalid verification code.',
+            failedAttempts: newAttempts,
+            blockedUntil: updates.blockedUntil ? updates.blockedUntil.toMillis() : null
+        });
         return;
     }
 
@@ -240,9 +291,23 @@ async function handleVerifyCode(data: any, res: any) {
     res.json({ result: 'success', message: 'Verified and saved.' });
 }
 
+async function handleIdeaSubmit(data: any, res: any) {
+    const { idea, email } = data;
+    const finalData = {
+        idea,
+        email: email || 'Anonymous user',
+        joinedAt: admin.firestore.FieldValue.serverTimestamp(),
+        timestamp: admin.firestore.FieldValue.serverTimestamp()
+    };
+    await db.collection('ideas').add(finalData);
+    res.json({ result: 'success', message: 'Idea received. Thank you!' });
+}
+
 async function handleGenericSubmit(data: any, res: any) {
-    // Keep this for backward compatibility if needed, but new flow uses verify-code
-    await processSubmission(data);
+    // Legacy support
+    const finalData = { ...data };
+    delete finalData.action;
+    await db.collection('submissions').add(finalData);
     res.json({ result: 'success', message: 'Saved' });
 }
 

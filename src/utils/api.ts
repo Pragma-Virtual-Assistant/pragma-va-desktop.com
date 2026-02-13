@@ -12,12 +12,14 @@ export async function submitData(data: any): Promise<{ success: boolean; message
         const result = await response.json();
 
         if (!response.ok || result.result === 'error') {
-            throw new Error(result.message || 'Submission failed');
+            const error: any = new Error(result.message || 'Submission failed');
+            error.blockedUntil = result.blockedUntil;
+            throw error;
         }
 
         return { success: true, message: result.message };
     } catch (error: any) {
         console.error("API Error:", error);
-        throw new Error(error.message || "Failed to communicate with server. Please check your connection.");
+        throw error;
     }
 }
