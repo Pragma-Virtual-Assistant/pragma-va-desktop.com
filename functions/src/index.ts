@@ -138,67 +138,110 @@ export const apiService = onRequest({
 // --- HANDLERS ---
 
 async function handleRequestCode(data: any, res: any) {
-    const email = data.email;
+    const { email, type } = data;
     if (!email) {
         res.status(400).json({ result: 'error', message: 'Email missing' });
         return;
     }
 
-    const code = Math.floor(1000 + Math.random() * 9000).toString();
+    // 1. Check if already in waitlist (only for waitlist type)
+    if (type === 'waitlist') {
+        const existing = await db.collection('waitlist').where('email', '==', email).limit(1).get();
+        if (!existing.empty) {
+            res.status(400).json({ result: 'error', message: 'You are already on the waitlist.' });
+            return;
+        }
+    }
+
+    // 2. Generate 6-digit code
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date();
+    expiresAt.setMinutes(expiresAt.getMinutes() + 15);
+
     const payload = {
-        code: code,
-        timestamp: admin.firestore.FieldValue.serverTimestamp(),
-        originalData: data
+        code,
+        type,
+        originalData: data,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        expiresAt: admin.firestore.Timestamp.fromDate(expiresAt)
     };
 
-    // Save OTP to Firestore (with overwrite)
-    await db.collection('otp_codes').doc(email).set(payload);
+    // 3. Save to pending_verifications (Doc ID is email for simplicity and throttling)
+    await db.collection('pending_verifications').doc(email).set(payload);
 
-    // Send Email
-    await sendEmail(email, CONFIG.SUBJECT_OTP, `Your Code is: ${code}`);
+    // 4. Send Email
+    await sendEmail(
+        email,
+        `Your Verification Code: ${code}`,
+        `Here is your verification code for the PragmaVA ${type || 'request'}: ${code}. It expires in 15 minutes. If you did not request this, please ignore this email.`
+    );
 
-    res.json({ result: 'success', message: 'Code sent' });
+    res.json({ result: 'success', message: 'Verification code sent.' });
 }
 
 async function handleVerifyCode(data: any, res: any) {
-    const email = data.email;
-    const userCode = data.code;
+    const { email, code } = data;
 
-    if (!email || !userCode) {
-        res.status(400).json({ result: 'error', message: 'Missing credentials' });
+    if (!email || !code) {
+        res.status(400).json({ result: 'error', message: 'Missing email or code' });
         return;
     }
 
-    const docRef = db.collection('otp_codes').doc(email);
+    // 1. Fetch from pending_verifications
+    const docRef = db.collection('pending_verifications').doc(email);
     const doc = await docRef.get();
 
     if (!doc.exists) {
-        res.status(400).json({ result: 'error', message: 'Code expired or not found.' });
+        res.status(400).json({ result: 'error', message: 'Verification session not found. Please request a new code.' });
         return;
     }
 
-    const storedData = doc.data();
-    if (storedData?.code !== userCode.toString()) {
-        res.status(400).json({ result: 'error', message: 'Invalid code' });
+    const verification = doc.data();
+    const now = admin.firestore.Timestamp.now();
+
+    // 2. Validate
+    if (verification?.code !== code.toString()) {
+        res.status(400).json({ result: 'error', message: 'Invalid verification code.' });
         return;
     }
 
-    // Code Valid -> Process Original Data
-    const originalData = storedData.originalData;
-    await processSubmission(originalData);
+    if (verification.expiresAt.toMillis() < now.toMillis()) {
+        res.status(400).json({ result: 'error', message: 'Verification code expired.' });
+        return;
+    }
 
-    // Cleanup OTP
+    // 3. Promote to Final Collection
+    const originalData = verification.originalData;
+    const finalData = {
+        ...originalData,
+        joinedAt: admin.firestore.FieldValue.serverTimestamp(),
+        timestamp: admin.firestore.FieldValue.serverTimestamp() // Keep compatibility
+    };
+    delete finalData.action;
+    delete finalData.code;
+
+    let collectionName = 'submissions';
+    if (originalData.type === 'waitlist') collectionName = 'waitlist';
+    else if (originalData.type === 'contact') collectionName = 'contact';
+    else if (originalData.type === 'idea') collectionName = 'ideas';
+
+    await db.collection(collectionName).add(finalData);
+
+    // 4. Cleanup
     await docRef.delete();
 
-    // Welcome Email if Waitlist
+    // 5. Final Confirmation Email
     if (originalData.type === 'waitlist') {
-        await sendEmail(email, CONFIG.SUBJECT_WELCOME, `Welcome to PragmaVA! You are on the list.`);
+        await sendEmail(email, CONFIG.SUBJECT_WELCOME, `Welcome to PragmaVA! You are now officially on the early-access waitlist.`);
+    } else {
+        await sendEmail(email, "Request Received", `Thank you! We have received your ${originalData.type} and will review it shortly.`);
     }
 
-    res.json({ result: 'success', message: 'Verified' });
+    res.json({ result: 'success', message: 'Verified and saved.' });
 }
 
 async function handleGenericSubmit(data: any, res: any) {
+    // Keep this for backward compatibility if needed, but new flow uses verify-code
     await processSubmission(data);
     res.json({ result: 'success', message: 'Saved' });
 }

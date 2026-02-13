@@ -4,35 +4,52 @@ import { submitData } from '../utils/api';
 
 export function WaitlistForm() {
     const [email, setEmail] = useState('');
+    const [code, setCode] = useState('');
     const [support, setSupport] = useState(false);
-    const [status, setStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
+    const [step, setStep] = useState<'email' | 'verification' | 'success'>('email');
+    const [status, setStatus] = useState<'idle' | 'submitting' | 'error'>('idle');
     const [errorMessage, setErrorMessage] = useState('');
 
-    const handleSubmit = async (e: React.FormEvent) => {
+    const handleRequestCode = async (e: React.FormEvent) => {
         e.preventDefault();
         setStatus('submitting');
+        setErrorMessage('');
 
         try {
-            await submitData({ type: 'waitlist', email, support });
-
-            setStatus('success');
-            localStorage.setItem('pragma_user_email', email);
-            setEmail('');
-            setSupport(false);
-        } catch (error) {
-            console.error('Error submitting form', error);
+            await submitData({ action: 'request_code', type: 'waitlist', email, support });
+            setStep('verification');
+            setStatus('idle');
+        } catch (error: any) {
+            console.error('Error requesting code', error);
             setStatus('error');
-            setErrorMessage(error instanceof Error ? error.message : 'Unknown error');
+            setErrorMessage(error.message || 'Failed to send verification code');
         }
     };
 
-    if (status === 'success') {
+    const handleVerifyCode = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setStatus('submitting');
+        setErrorMessage('');
+
+        try {
+            await submitData({ action: 'verify_code', email, code });
+            setStep('success');
+            setStatus('idle');
+            localStorage.setItem('pragma_user_email', email);
+        } catch (error: any) {
+            console.error('Error verifying code', error);
+            setStatus('error');
+            setErrorMessage(error.message || 'Invalid or expired code');
+        }
+    };
+
+    if (step === 'success') {
         return (
             <div className="bg-green-50 dark:bg-green-900/20 p-6 rounded-2xl border border-green-100 dark:border-green-800 text-center animate-fade-in">
                 <h3 className="text-xl font-bold text-green-800 dark:text-green-300 mb-2">You're on the list!</h3>
-                <p className="text-green-700 dark:text-green-400">Thanks for joining. We'll be in touch soon.</p>
+                <p className="text-green-700 dark:text-green-400">Verification successful. Thanks for joining!</p>
                 <button
-                    onClick={() => setStatus('idle')}
+                    onClick={() => { setStep('email'); setStatus('idle'); setEmail(''); setCode(''); }}
                     className="mt-4 text-sm text-green-600 dark:text-green-400 hover:underline"
                 >
                     Submit another email
@@ -41,8 +58,58 @@ export function WaitlistForm() {
         );
     }
 
+    if (step === 'verification') {
+        return (
+            <form onSubmit={handleVerifyCode} className="w-full max-w-md mx-auto space-y-4 animate-fade-in">
+                <div className="text-center mb-4">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Verify Your Email</h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">We sent a 6-digit code to <span className="font-semibold">{email}</span></p>
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-3">
+                    <input
+                        type="text"
+                        required
+                        maxLength={6}
+                        placeholder="Enter 6-digit code"
+                        value={code}
+                        onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
+                        className="flex-1 px-5 py-3 rounded-full border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all text-center tracking-widest text-xl font-bold"
+                    />
+                    <button
+                        type="submit"
+                        disabled={status === 'submitting' || code.length < 6}
+                        className="px-6 py-3 rounded-full bg-primary text-white font-bold hover:bg-primary-dark disabled:opacity-70 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"
+                    >
+                        {status === 'submitting' ? (
+                            <Loader2 className="w-5 h-5 animate-spin" />
+                        ) : (
+                            <>Verify & Join <Send className="w-4 h-4" /></>
+                        )}
+                    </button>
+                </div>
+
+                <div className="text-center">
+                    <button
+                        type="button"
+                        onClick={() => setStep('email')}
+                        className="text-sm text-gray-500 hover:text-primary transition-colors"
+                    >
+                        Change Email Address
+                    </button>
+                </div>
+
+                {status === 'error' && (
+                    <div className="text-red-500 text-sm text-center">
+                        <p>{errorMessage}</p>
+                    </div>
+                )}
+            </form>
+        );
+    }
+
     return (
-        <form onSubmit={handleSubmit} className="w-full max-w-md mx-auto space-y-4">
+        <form onSubmit={handleRequestCode} className="w-full max-w-md mx-auto space-y-4">
             <div className="flex flex-col sm:flex-row gap-3">
                 <input
                     type="email"
@@ -88,9 +155,7 @@ export function WaitlistForm() {
 
             {status === 'error' && (
                 <div className="text-red-500 text-sm text-center">
-                    <p className="font-bold">Something went wrong.</p>
-                    <p className="text-xs mt-1 opacity-75">{errorMessage}</p>
-                    <p className="text-xs mt-1">Check Console (F12) for details.</p>
+                    <p>{errorMessage}</p>
                 </div>
             )}
         </form>

@@ -1,29 +1,23 @@
-import { db } from '../firebase';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-
 export async function submitData(data: any): Promise<{ success: boolean; message?: string }> {
     try {
-        // Determine collection based on data type
-        let collectionName = 'submissions';
-        if (data.type === 'waitlist') collectionName = 'waitlist';
-        else if (data.type === 'contact') collectionName = 'contact';
-        else if (data.type === 'idea') collectionName = 'ideas';
+        const baseUrl = import.meta.env.VITE_API_BASE_URL || '/api';
+        const response = await fetch(baseUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data),
+        });
 
-        const payload = {
-            ...data,
-            timestamp: serverTimestamp()
-        };
+        const result = await response.json();
 
-        // Remove 'action' if present as it was for the Cloud Function
-        if ('action' in payload) delete payload.action;
+        if (!response.ok || result.result === 'error') {
+            throw new Error(result.message || 'Submission failed');
+        }
 
-        // Direct write to Firestore to bypass HTTPS 403 Forbidden issues
-        await addDoc(collection(db, collectionName), payload);
-
-        return { success: true };
+        return { success: true, message: result.message };
     } catch (error: any) {
-        console.error("Submission Error (Firestore):", error);
-        // Fallback for user friendliness
-        throw new Error(error.message || "Failed to submit form. Please check your connection.");
+        console.error("API Error:", error);
+        throw new Error(error.message || "Failed to communicate with server. Please check your connection.");
     }
 }
