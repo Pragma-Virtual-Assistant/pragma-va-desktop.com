@@ -22,7 +22,12 @@ export function WaitlistForm() {
         } catch (error: any) {
             console.error('Error requesting code', error);
             setStatus('error');
-            setErrorMessage(error.message || 'Failed to send verification code');
+            const msg = error.message || "";
+            if (msg.includes('Unexpected token') || msg.includes('is not valid JSON')) {
+                setErrorMessage('Service temporarily unavailable (API Error). Please try again in 3 minutes.');
+            } else {
+                setErrorMessage(msg || 'Failed to send verification code');
+            }
         }
     };
 

@@ -19,17 +19,11 @@
         "rewrites": [
             {
                 "source": "/api",
-                "run": {
-                    "serviceId": "apiservice",
-                    "region": "us-central1"
-                }
+                "function": "apiService"
             },
             {
                 "source": "/api/**",
-                "run": {
-                    "serviceId": "apiservice",
-                    "region": "us-central1"
-                }
+                "function": "apiService"
             },
             {
                 "source": "**",

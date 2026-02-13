@@ -102,12 +102,13 @@ export const onIdeaCreated = onDocumentCreated({
 
 export const apiService = onRequest({
     region: 'us-central1',
-    // invoker: 'private', // Removed to allow public access as Provisioning Identity Bridge failed
+    invoker: 'public', // Explicitly public for Hosting proxy compatibility
     timeoutSeconds: 60,
     memory: '256MiB',
     cors: true // Gen 2 has built-in CORS
 }, async (req, res) => {
     try {
+        console.log(`API Request: ${req.method} ${req.url}`, { body: req.body });
         if (req.method !== 'POST') {
             res.status(405).send('Method Not Allowed');
             return;
