@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { ChevronRight } from 'lucide-react';
 import { WaitlistForm } from './WaitlistForm';
 
@@ -6,7 +6,68 @@ interface HeroProps {
     onJoinClick: () => void;
 }
 
+declare global {
+    interface Window {
+        onYouTubeIframeAPIReady: () => void;
+        YT: any;
+    }
+}
+
 export function Hero({ onJoinClick }: HeroProps) {
+    const playerRef = useRef<any>(null);
+    const containerRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        // 1. Load the YouTube API script if it doesn't exist
+        if (!window.YT) {
+            const tag = document.createElement('script');
+            tag.src = "https://www.youtube.com/iframe_api";
+            const firstScriptTag = document.getElementsByTagName('script')[0];
+            firstScriptTag.parentNode?.insertBefore(tag, firstScriptTag);
+        }
+
+        // 2. Define the callback for when the API is ready
+        window.onYouTubeIframeAPIReady = () => {
+            initPlayer();
+        };
+
+        // 3. If it's already loaded, just init
+        if (window.YT && window.YT.Player) {
+            initPlayer();
+        }
+
+        function initPlayer() {
+            if (!containerRef.current || playerRef.current) return;
+
+            playerRef.current = new window.YT.Player(containerRef.current, {
+                height: '100%',
+                width: '100%',
+                videoId: 'jzaiBP1nBbg',
+                playerVars: {
+                    rel: 0,
+                    modestbranding: 1,
+                    origin: window.location.origin
+                },
+                events: {
+                    onStateChange: (event: any) => {
+                        // event.data === 0 means ENDED
+                        if (event.data === 0) {
+                            event.target.seekTo(0);
+                            event.target.pauseVideo();
+                        }
+                    }
+                }
+            });
+        }
+
+        return () => {
+            if (playerRef.current) {
+                playerRef.current.destroy();
+                playerRef.current = null;
+            }
+        };
+    }, []);
+
     return (
         <section className="relative pt-32 pb-20 px-6 overflow-hidden">
             {/* Background Gradients */}
@@ -51,15 +112,8 @@ export function Hero({ onJoinClick }: HeroProps) {
                 {/* YouTube Demo Video */}
                 <div className="pt-12 max-w-3xl mx-auto">
                     <div className="relative aspect-video rounded-3xl overflow-hidden shadow-2xl border border-gray-200 dark:border-gray-700 group">
-                        <div className="absolute inset-0 bg-blue-500/10 mix-blend-overlay group-hover:bg-transparent transition-colors duration-500"></div>
-                        <iframe
-                            className="absolute inset-0 w-full h-full"
-                            src="https://www.youtube.com/embed/jzaiBP1nBbg?rel=0&modestbranding=1"
-                            title="PragmaVA Demo"
-                            frameBorder="0"
-                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                            allowFullScreen
-                        ></iframe>
+                        <div className="absolute inset-0 bg-blue-500/10 mix-blend-overlay group-hover:bg-transparent transition-colors duration-500 pointer-events-none z-10"></div>
+                        <div ref={containerRef} className="absolute inset-0 w-full h-full"></div>
                     </div>
                     <div className="mt-4 flex items-center justify-center gap-2 text-sm text-gray-500 font-medium">
                         <span className="w-2 h-2 rounded-full bg-red-500"></span>
