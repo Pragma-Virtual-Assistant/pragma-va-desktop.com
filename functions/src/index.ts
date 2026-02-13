@@ -9,7 +9,7 @@ const db = admin.firestore();
 const secretClient = new SecretManagerServiceClient();
 
 const CONFIG = {
-    FROM_ALIAS: 'PragmaVA Team <contact@pragma-va-desktop.com>',
+    FROM_ALIAS: 'PragmaVA Team <hello@pragma-va-desktop.com>',
     SUBJECT_OTP: 'Your PragmaVA Verification Code',
     SUBJECT_WELCOME: 'Welcome to PragmaVA Early-Access!',
     SUBJECT_IDEA: 'PragmaVA: Idea Received'
